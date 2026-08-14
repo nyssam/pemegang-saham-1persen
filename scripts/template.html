@@ -117,8 +117,21 @@ td.right, th.right { text-align: right; }
   color: #fff; font-size: 0.6rem; font-weight: 700; font-family: 'Inter', sans-serif;
   flex-shrink: 0;
 }
-.ticker-cell { display: inline-flex; align-items: center; gap: 0.55rem; }
+.ticker-cell { display: inline-flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
 .issuer-name { color: var(--ink-soft); font-weight: 500; }
+
+.tag {
+  font-size: 0.62rem; color: var(--ink-soft); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.05rem 0.4rem; border-radius: 6px;
+  white-space: nowrap; font-weight: 500;
+}
+.holder-cell { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.result-group-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--ink-soft); font-weight: 700; margin: 1.5rem 0 0.6rem;
+}
+.result-group-label:first-child { margin-top: 0; }
 
 .public-row td {
   padding: 0.55rem 0.75rem;
@@ -159,12 +172,13 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
   <p class="meta-line">
     <span class="item"><span class="dot"></span>Data per <strong id="reportDate">—</strong></span>
     <span class="item"><span id="issuerCount">—</span> emiten tercakup</span>
+    <span class="item"><span id="investorCount">—</span> pemegang saham unik</span>
   </p>
 
   <div class="search-box">
-    <input type="search" id="q" placeholder="Cari kode saham atau nama emiten (mis. BBCA, Bank Central Asia)..." autofocus>
+    <input type="search" id="q" placeholder="Cari kode saham, nama emiten, atau nama pemegang saham..." autofocus>
   </div>
-  <p class="hint">Sisa persentase yang tidak tercatat di daftar ≥1% dihitung otomatis sebagai kepemilikan Masyarakat (publik).</p>
+  <p class="hint">Sisa persentase yang tidak tercatat di daftar ≥1% dihitung otomatis sebagai kepemilikan Masyarakat (publik). Bisa juga cari nama pemegang saham (mis. "Djarum") buat lihat semua emiten yang dia pegang.</p>
 
   <p class="count" id="count"></p>
   <div id="results"></div>
@@ -208,8 +222,10 @@ const DATA = __DATA__;
   }
 
   var issuers = DATA.issuers;
+  var investors = DATA.investors;
   document.getElementById('reportDate').textContent = DATA.reportDate;
   document.getElementById('issuerCount').textContent = issuers.length;
+  document.getElementById('investorCount').textContent = investors.length;
 
   var q = document.getElementById('q');
   var resultsEl = document.getElementById('results');
@@ -224,45 +240,73 @@ const DATA = __DATA__;
     });
   }
 
-  function render(list, term) {
+  function issuerCard(item) {
+    var rows = item.holders.map(function (h) {
+      var badge = h.cls ? '<span class="tag">' + escapeHtml(h.cls) + '</span>' : '';
+      return '<tr><td><span class="holder-cell">' + escapeHtml(h.name) + badge + '</span></td><td class="right num">' + pct(h.pct) + '</td></tr>';
+    }).join('');
+    var publicRow = item.public > 0
+      ? '<tr class="public-row"><td>Masyarakat (publik)</td><td class="right num">' + pct(item.public) + '</td></tr>'
+      : '';
+    return (
+      '<section class="ledger">' +
+        '<div class="section-head">' +
+          '<h2><span class="ticker-cell">' +
+            '<span class="ticker-badge-fallback" style="background:' + colorFor(item.ticker) + '">' + escapeHtml(item.ticker.slice(0, 2)) + '</span>' +
+            '<span class="kode">' + escapeHtml(item.ticker) + '</span>' +
+            '<span class="issuer-name">' + escapeHtml(item.issuer) + '</span>' +
+          '</span></h2>' +
+        '</div>' +
+        '<div class="table-card">' +
+          '<table><tbody>' + rows + publicRow + '</tbody></table>' +
+        '</div>' +
+      '</section>'
+    );
+  }
+
+  function investorCard(item) {
+    var rows = item.holdings.map(function (h) {
+      return '<tr><td><span class="kode">' + escapeHtml(h.ticker) + '</span> <span class="issuer-name">' + escapeHtml(h.issuer) + '</span></td><td class="right num">' + pct(h.pct) + '</td></tr>';
+    }).join('');
+    var badge = item.cls ? '<span class="tag">' + escapeHtml(item.cls) + '</span>' : '';
+    return (
+      '<section class="ledger">' +
+        '<div class="section-head">' +
+          '<h2><span class="ticker-cell">' + escapeHtml(item.name) + badge + '</span></h2>' +
+        '</div>' +
+        '<div class="table-card">' +
+          '<table><tbody>' + rows + '</tbody></table>' +
+        '</div>' +
+      '</section>'
+    );
+  }
+
+  function render(issuerList, investorList, term) {
     if (!term) {
       resultsEl.innerHTML = '';
       countEl.textContent = '';
       return;
     }
-    countEl.textContent = list.length + ' emiten ditemukan';
-    if (list.length === 0) {
-      resultsEl.innerHTML = '<div class="empty">Tidak ada emiten yang cocok.</div>';
+    if (issuerList.length === 0 && investorList.length === 0) {
+      countEl.textContent = '0 hasil';
+      resultsEl.innerHTML = '<div class="empty">Tidak ada emiten atau pemegang saham yang cocok.</div>';
       return;
     }
-    var html = list.slice(0, 50).map(function (item) {
-      var rows = item.holders.map(function (h) {
-        return '<tr><td>' + escapeHtml(h.name) + '</td><td class="right num">' + pct(h.pct) + '</td></tr>';
-      }).join('');
-      var publicRow = item.public > 0
-        ? '<tr class="public-row"><td>Masyarakat (publik)</td><td class="right num">' + pct(item.public) + '</td></tr>'
-        : '';
-      return (
-        '<section class="ledger">' +
-          '<div class="section-head">' +
-            '<h2><span class="ticker-cell">' +
-              '<span class="ticker-badge-fallback" style="background:' + colorFor(item.ticker) + '">' + escapeHtml(item.ticker.slice(0, 2)) + '</span>' +
-              '<span class="kode">' + escapeHtml(item.ticker) + '</span>' +
-              '<span class="issuer-name">' + escapeHtml(item.issuer) + '</span>' +
-            '</span></h2>' +
-          '</div>' +
-          '<div class="table-card">' +
-            '<table><tbody>' + rows + publicRow + '</tbody></table>' +
-          '</div>' +
-        '</section>'
-      );
-    }).join('');
+    countEl.textContent = issuerList.length + ' emiten, ' + investorList.length + ' pemegang saham ditemukan';
+
+    var html = '';
+    if (issuerList.length > 0) {
+      html += '<div class="result-group-label">Emiten</div>';
+      html += issuerList.slice(0, 30).map(issuerCard).join('');
+    }
+    if (investorList.length > 0) {
+      html += '<div class="result-group-label">Pemegang Saham</div>';
+      html += investorList.slice(0, 30).map(investorCard).join('');
+    }
     resultsEl.innerHTML = html;
   }
 
-  function search(term) {
-    var t = term.trim().toLowerCase();
-    if (!t) return [];
+  function searchIssuers(t) {
     return issuers.filter(function (item) {
       return item.ticker.toLowerCase().indexOf(t) !== -1 || item.issuer.toLowerCase().indexOf(t) !== -1;
     }).sort(function (a, b) {
@@ -274,12 +318,25 @@ const DATA = __DATA__;
     });
   }
 
+  function searchInvestors(t) {
+    if (t.length < 3) return []; // avoid thousands of noisy matches on 1-2 char terms
+    return investors.filter(function (item) {
+      return item.name.toLowerCase().indexOf(t) !== -1;
+    }).sort(function (a, b) {
+      var maxA = Math.max.apply(null, a.holdings.map(function (h) { return h.pct; }));
+      var maxB = Math.max.apply(null, b.holdings.map(function (h) { return h.pct; }));
+      return maxB - maxA;
+    });
+  }
+
   var debounceTimer;
   q.addEventListener('input', function () {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
       var term = q.value;
-      render(search(term), term);
+      var t = term.trim().toLowerCase();
+      if (!t) { render([], [], term); return; }
+      render(searchIssuers(t), searchInvestors(t), term);
     }, 80);
   });
 })();
