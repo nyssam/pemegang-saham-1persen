@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pemegang Saham ≥1%</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --surface: #f7f8f9;
+  --surface-hover: #eeeff1;
+  --ink: #14171a;
+  --ink-soft: #6b7280;
+  --line: #e5e7eb;
+  --gain: #0f9d58;
+  --loss: #d93025;
+  --accent: #14171a;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-hover: #22263a;
+    --ink: #e8eaf0;
+    --ink-soft: #8b92a8;
+    --line: #2a2f42;
+    --gain: #34c77b;
+    --loss: #f26b5e;
+    --accent: #e8eaf0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-hover: #22263a;
+  --ink: #e8eaf0;
+  --ink-soft: #8b92a8;
+  --line: #2a2f42;
+  --gain: #34c77b;
+  --loss: #f26b5e;
+  --accent: #e8eaf0;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); }
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.5; }
+.num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+
+.page { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+header.masthead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 1.25rem; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 0.65rem; }
+.brand .logo {
+  width: 34px; height: 34px; border-radius: 8px; background: var(--ink);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; flex-shrink: 0;
+  padding: 4px; overflow: hidden;
+}
+.brand-text { line-height: 1.2; }
+.brand-text .eyebrow { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.brand-text h1 { font-size: 1.35rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font-size: 0.95rem;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--surface-hover); }
+
+.meta-line {
+  font-size: 0.82rem; color: var(--ink-soft); margin: 0.9rem 0 1.5rem;
+  display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+}
+.meta-line .item { display: flex; align-items: center; gap: 0.4rem; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gain); display: inline-block; }
+
+.search-box input[type="search"] {
+  width: 100%; padding: 0.75rem 1rem; font-size: 0.95rem;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--ink); outline: none;
+}
+.search-box input[type="search"]:focus { border-color: var(--ink); background: var(--bg); }
+.hint { font-size: 0.78rem; color: var(--ink-soft); margin: 0.6rem 0 1.5rem; }
+.count { font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 0.75rem; }
+
+.ledger { margin-bottom: 1rem; }
+.ledger + .ledger { margin-top: 1rem; }
+.ledger .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
+.ledger h2 { font-size: 0.95rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+
+.table-card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 0.9rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+tbody td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--surface-hover); }
+td.right, th.right { text-align: right; }
+.kode { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+.ticker-badge-fallback {
+  width: 24px; height: 24px; min-width: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.6rem; font-weight: 700; font-family: 'Inter', sans-serif;
+  flex-shrink: 0;
+}
+.ticker-cell { display: inline-flex; align-items: center; gap: 0.55rem; }
+.issuer-name { color: var(--ink-soft); font-weight: 500; }
+
+.public-row td {
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.empty { padding: 2.5rem 1rem; text-align: center; color: var(--ink-soft); font-size: 0.9rem; }
+
+footer.pp-footer {
+  margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
+  font-size: 0.78rem; color: var(--ink-soft); display: flex; justify-content: space-between;
+  flex-wrap: wrap; gap: 0.5rem;
+}
+footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .page { padding: 1.25rem 0.9rem 3rem; }
+  .brand-text h1 { font-size: 1.1rem; }
+  footer.pp-footer { flex-direction: column; gap: 0.3rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <div class="brand">
+      <div class="logo"><img src="logo.png" alt="SDN" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="brand-text">
+        <div class="eyebrow">Saham Dari Nol</div>
+        <h1>Pemegang Saham ≥1%</h1>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Mode gelap">🌙</button>
+  </header>
+
+  <p class="meta-line">
+    <span class="item"><span class="dot"></span>Data per <strong id="reportDate">—</strong></span>
+    <span class="item"><span id="issuerCount">—</span> emiten tercakup</span>
+  </p>
+
+  <div class="search-box">
+    <input type="search" id="q" placeholder="Cari kode saham atau nama emiten (mis. BBCA, Bank Central Asia)..." autofocus>
+  </div>
+  <p class="hint">Sisa persentase yang tidak tercatat di daftar ≥1% dihitung otomatis sebagai kepemilikan Masyarakat (publik).</p>
+
+  <p class="count" id="count"></p>
+  <div id="results"></div>
+
+  <footer class="pp-footer">
+    <span>Data kepemilikan saham dari KSEI. Bukan rekomendasi beli/jual. Sumber data dari <a href="https://www.idx.co.id/StaticData/NewsAndAnnouncement/ANNOUNCEMENTSTOCK/From_EREP/202606/c3afea116e_700b93231b.pdf" target="_blank" rel="noopener noreferrer">sini</a>.</span>
+    <span>Saham Dari Nol</span>
+  </footer>
+</div>
+
+<script>
+const DATA = __DATA__;
+</script>
+<script>
+(function () {
+  function safeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function safeSet(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+
+  function getInitialTheme() {
+    var saved = safeGet('psaham-theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  var theme = getInitialTheme();
+  function applyTheme() {
+    document.documentElement.dataset.theme = theme;
+    safeSet('psaham-theme', theme);
+    document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+  applyTheme();
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+  });
+
+  var AVATAR_COLORS = ['#14171a', '#2f5233', '#7a4a1f', '#3a4a7a', '#7a2f4a', '#1f5a5a', '#5a3a7a'];
+  function colorFor(kode) {
+    var hash = 0;
+    for (var i = 0; i < kode.length; i++) hash = kode.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+
+  var issuers = DATA.issuers;
+  document.getElementById('reportDate').textContent = DATA.reportDate;
+  document.getElementById('issuerCount').textContent = issuers.length;
+
+  var q = document.getElementById('q');
+  var resultsEl = document.getElementById('results');
+  var countEl = document.getElementById('count');
+
+  var nf = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function pct(n) { return nf.format(n) + '%'; }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function render(list, term) {
+    if (!term) {
+      resultsEl.innerHTML = '';
+      countEl.textContent = '';
+      return;
+    }
+    countEl.textContent = list.length + ' emiten ditemukan';
+    if (list.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">Tidak ada emiten yang cocok.</div>';
+      return;
+    }
+    var html = list.slice(0, 50).map(function (item) {
+      var rows = item.holders.map(function (h) {
+        return '<tr><td>' + escapeHtml(h.name) + '</td><td class="right num">' + pct(h.pct) + '</td></tr>';
+      }).join('');
+      var publicRow = item.public > 0
+        ? '<tr class="public-row"><td>Masyarakat (publik)</td><td class="right num">' + pct(item.public) + '</td></tr>'
+        : '';
+      return (
+        '<section class="ledger">' +
+          '<div class="section-head">' +
+            '<h2><span class="ticker-cell">' +
+              '<span class="ticker-badge-fallback" style="background:' + colorFor(item.ticker) + '">' + escapeHtml(item.ticker.slice(0, 2)) + '</span>' +
+              '<span class="kode">' + escapeHtml(item.ticker) + '</span>' +
+              '<span class="issuer-name">' + escapeHtml(item.issuer) + '</span>' +
+            '</span></h2>' +
+          '</div>' +
+          '<div class="table-card">' +
+            '<table><tbody>' + rows + publicRow + '</tbody></table>' +
+          '</div>' +
+        '</section>'
+      );
+    }).join('');
+    resultsEl.innerHTML = html;
+  }
+
+  function search(term) {
+    var t = term.trim().toLowerCase();
+    if (!t) return [];
+    return issuers.filter(function (item) {
+      return item.ticker.toLowerCase().indexOf(t) !== -1 || item.issuer.toLowerCase().indexOf(t) !== -1;
+    }).sort(function (a, b) {
+      var at = a.ticker.toLowerCase() === t, bt = b.ticker.toLowerCase() === t;
+      if (at !== bt) return at ? -1 : 1;
+      var as = a.ticker.toLowerCase().indexOf(t) === 0, bs = b.ticker.toLowerCase().indexOf(t) === 0;
+      if (as !== bs) return as ? -1 : 1;
+      return a.ticker.localeCompare(b.ticker);
+    });
+  }
+
+  var debounceTimer;
+  q.addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      var term = q.value;
+      render(search(term), term);
+    }, 80);
+  });
+})();
+</script>
+</body>
+</html>
