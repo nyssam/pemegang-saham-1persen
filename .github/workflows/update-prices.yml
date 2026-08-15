@@ -1,0 +1,18 @@
+name: Update stock prices
+
+on:
+  schedule:
+    # Every 15 min during IDX trading hours (09:00-15:00 WIB = 02:00-08:00 UTC), Mon-Fri.
+    # GitHub Actions cron is best-effort, can be a few minutes late when busy.
+    - cron: '*/15 2-8 * * 1-5'
+  workflow_dispatch: {} # allow manual trigger from the Actions tab
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call update-prices endpoint
+        run: |
+          curl --fail --silent --show-error \
+            -X GET "https://1.sahamdarinol.com/api/update-prices" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

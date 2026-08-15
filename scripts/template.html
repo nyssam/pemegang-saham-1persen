@@ -138,6 +138,9 @@ td.right, th.right { text-align: right; }
 }
 .result-group-label:first-child { margin-top: 0; }
 
+.investor-total { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.2rem; }
+.investor-total strong { color: var(--ink); }
+
 .public-row td {
   padding: 0.55rem 0.75rem;
   border-top: 1px solid var(--line);
@@ -178,6 +181,7 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
     <span class="item"><span class="dot"></span>Data per <strong id="reportDate">—</strong></span>
     <span class="item"><span id="issuerCount">—</span> emiten tercakup</span>
     <span class="item"><span id="investorCount">—</span> pemegang saham unik</span>
+    <span class="item" id="priceStatus" style="display:none">Harga per <strong id="priceUpdatedAt">—</strong></span>
   </p>
 
   <div class="search-box">
@@ -196,6 +200,8 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
 
 <script>
 const DATA = __DATA__;
+const SUPABASE_URL = '__SUPABASE_URL__';
+const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY__';
 </script>
 <script>
 (function () {
@@ -240,6 +246,10 @@ const DATA = __DATA__;
   function pct(n) { return nf.format(n) + '%'; }
   var nfInt = new Intl.NumberFormat('id-ID');
   function shares(n) { return nfInt.format(n); }
+  function formatRp(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return 'Rp' + Math.round(n).toLocaleString('id-ID');
+  }
 
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, function (c) {
@@ -247,13 +257,25 @@ const DATA = __DATA__;
     });
   }
 
+  var prices = {}; // ticker -> price (number)
+
+  function priceOf(ticker) {
+    return Object.prototype.hasOwnProperty.call(prices, ticker) ? prices[ticker] : null;
+  }
+
   function issuerCard(item) {
     var rows = item.holders.map(function (h) {
       var badge = h.cls ? '<span class="tag">' + escapeHtml(h.cls) + '</span>' : '';
-      return '<tr><td><span class="holder-cell">' + escapeHtml(h.name) + badge + '</span></td><td class="right num">' + shares(h.shares) + '</td><td class="right num">' + pct(h.pct) + '</td></tr>';
+      var price = priceOf(item.ticker);
+      var value = price != null ? h.shares * price : null;
+      return '<tr><td><span class="holder-cell">' + escapeHtml(h.name) + badge + '</span></td>' +
+        '<td class="right num">' + shares(h.shares) + '</td>' +
+        '<td class="right num">' + pct(h.pct) + '</td>' +
+        '<td class="right num">' + formatRp(price) + '</td>' +
+        '<td class="right num">' + formatRp(value) + '</td></tr>';
     }).join('');
     var publicRow = item.public > 0
-      ? '<tr class="public-row"><td>Masyarakat (publik)</td><td></td><td class="right num">' + pct(item.public) + '</td></tr>'
+      ? '<tr class="public-row"><td>Masyarakat (publik)</td><td></td><td class="right num">' + pct(item.public) + '</td><td></td><td></td></tr>'
       : '';
     return (
       '<section class="ledger">' +
@@ -265,24 +287,41 @@ const DATA = __DATA__;
           '</span></h2>' +
         '</div>' +
         '<div class="table-card">' +
-          '<table><thead><tr><th>Pemegang Saham</th><th class="right">Lembar Saham</th><th class="right">%</th></tr></thead><tbody>' + rows + publicRow + '</tbody></table>' +
+          '<table><thead><tr><th>Pemegang Saham</th><th class="right">Lembar Saham</th><th class="right">%</th><th class="right">Harga/Lembar</th><th class="right">Valuasi</th></tr></thead><tbody>' + rows + publicRow + '</tbody></table>' +
         '</div>' +
       '</section>'
     );
   }
 
   function investorCard(item) {
+    var totalValue = 0;
+    var anyPriced = false;
     var rows = item.holdings.map(function (h) {
-      return '<tr><td><span class="kode">' + escapeHtml(h.ticker) + '</span> <span class="issuer-name">' + escapeHtml(h.issuer) + '</span></td><td class="right num">' + shares(h.shares) + '</td><td class="right num">' + pct(h.pct) + '</td></tr>';
+      var price = priceOf(h.ticker);
+      var value = price != null ? h.shares * price : null;
+      if (value != null) { totalValue += value; anyPriced = true; }
+      return '<tr><td><span class="kode">' + escapeHtml(h.ticker) + '</span> <span class="issuer-name">' + escapeHtml(h.issuer) + '</span></td>' +
+        '<td class="right num">' + shares(h.shares) + '</td>' +
+        '<td class="right num">' + pct(h.pct) + '</td>' +
+        '<td class="right num">' + formatRp(price) + '</td>' +
+        '<td class="right num">' + formatRp(value) + '</td></tr>';
     }).join('');
     var badge = item.cls ? '<span class="tag">' + escapeHtml(item.cls) + '</span>' : '';
+    var totalLine = anyPriced
+      ? '<div class="investor-total">Total valuasi tercatat: <strong class="num">' + formatRp(totalValue) +
+        (item.holdings.length > 1 && item.holdings.some(function (h) { return priceOf(h.ticker) == null; }) ? '*' : '') +
+        '</strong></div>'
+      : '';
     return (
       '<section class="ledger">' +
         '<div class="section-head">' +
-          '<h2><span class="ticker-cell">' + escapeHtml(item.name) + badge + '</span></h2>' +
+          '<div>' +
+            '<h2><span class="ticker-cell">' + escapeHtml(item.name) + badge + '</span></h2>' +
+            totalLine +
+          '</div>' +
         '</div>' +
         '<div class="table-card">' +
-          '<table><thead><tr><th>Emiten</th><th class="right">Lembar Saham</th><th class="right">%</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+          '<table><thead><tr><th>Emiten</th><th class="right">Lembar Saham</th><th class="right">%</th><th class="right">Harga/Lembar</th><th class="right">Valuasi</th></tr></thead><tbody>' + rows + '</tbody></table>' +
         '</div>' +
       '</section>'
     );
@@ -336,16 +375,40 @@ const DATA = __DATA__;
     });
   }
 
+  function runSearch() {
+    var term = q.value;
+    var t = term.trim().toLowerCase();
+    if (!t) { render([], [], term); return; }
+    render(searchIssuers(t), searchInvestors(t), term);
+  }
+
   var debounceTimer;
   q.addEventListener('input', function () {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(function () {
-      var term = q.value;
-      var t = term.trim().toLowerCase();
-      if (!t) { render([], [], term); return; }
-      render(searchIssuers(t), searchInvestors(t), term);
-    }, 80);
+    debounceTimer = setTimeout(runSearch, 80);
   });
+
+  function loadPrices() {
+    if (!SUPABASE_URL || SUPABASE_URL.indexOf('__') === 0) return; // not configured yet
+    fetch(SUPABASE_URL + '/rest/v1/stock_prices?select=ticker,price,updated_at', {
+      headers: { apikey: SUPABASE_ANON_KEY }
+    }).then(function (r) {
+      return r.ok ? r.json() : [];
+    }).then(function (rows) {
+      var latest = 0;
+      rows.forEach(function (r) {
+        prices[r.ticker] = r.price;
+        var t = new Date(r.updated_at).getTime();
+        if (t > latest) latest = t;
+      });
+      if (latest) {
+        document.getElementById('priceStatus').style.display = '';
+        document.getElementById('priceUpdatedAt').textContent = new Date(latest).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+      }
+      runSearch(); // re-render current results now that prices are in
+    }).catch(function () { /* no prices available -- tables just show "—" */ });
+  }
+  loadPrices();
 })();
 </script>
 </body>

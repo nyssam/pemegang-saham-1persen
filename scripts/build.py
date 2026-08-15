@@ -197,6 +197,14 @@ def build_html(payload):
           f'{len(payload["issuers"])} issuers, {len(payload["investors"])} unique investors)')
 
 
+def write_tickers(payload):
+    tickers_path = os.path.join(ROOT, 'api', 'tickers.json')
+    tickers = sorted(i['ticker'] for i in payload['issuers'])
+    with open(tickers_path, 'w', encoding='utf-8') as f:
+        json.dump(tickers, f)
+    print(f'Wrote {tickers_path} ({len(tickers)} tickers)')
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print(__doc__)
@@ -204,3 +212,4 @@ if __name__ == '__main__':
     records = parse_pdf(sys.argv[1])
     payload = aggregate(records)
     build_html(payload)
+    write_tickers(payload)
