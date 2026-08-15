@@ -103,6 +103,12 @@ def parse_pdf(pdf_path):
                     continue
                 percentage = float(pm.group(1).replace(',', '.'))
 
+                sm = re.match(r'^([\d.]+)$', clusters[-2][-1]['text'])
+                if not sm:
+                    anomalies += 1
+                    continue
+                shares = int(sm.group(1).replace('.', ''))
+
                 issuer_name = ' '.join(w['text'] for w in clusters[1])
                 investor_name = ' '.join(w['text'] for w in clusters[2])
                 classification = clean_classification(' '.join(w['text'] for w in clusters[3]))
@@ -131,6 +137,7 @@ def parse_pdf(pdf_path):
                     'investor': investor_name,
                     'class': classification,
                     'percentage': percentage,
+                    'shares': shares,
                 })
 
     print(f'Parsed {len(records)} rows ({dropped_corrupt} dropped: unrecoverable column collision), '
@@ -153,7 +160,7 @@ def aggregate(records):
     for ticker in sorted(by_ticker.keys()):
         rows = by_ticker[ticker]
         holders = sorted(
-            [{'name': r['investor'], 'pct': round(r['percentage'], 2), 'cls': r['class']} for r in rows],
+            [{'name': r['investor'], 'pct': round(r['percentage'], 2), 'cls': r['class'], 'shares': r['shares']} for r in rows],
             key=lambda h: -h['pct']
         )
         total = round(sum(h['pct'] for h in holders), 2)
@@ -171,7 +178,7 @@ def aggregate(records):
         rows = by_investor[name]
         cls = next((r['class'] for r in rows if r['class']), None)
         holdings = sorted(
-            [{'ticker': r['ticker'], 'issuer': r['issuer'], 'pct': round(r['percentage'], 2)} for r in rows],
+            [{'ticker': r['ticker'], 'issuer': r['issuer'], 'pct': round(r['percentage'], 2), 'shares': r['shares']} for r in rows],
             key=lambda h: -h['pct']
         )
         investors.append({'name': name, 'cls': cls, 'holdings': holdings})
