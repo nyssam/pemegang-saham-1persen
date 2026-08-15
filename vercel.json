@@ -1,1 +1,7 @@
-{}
+{
+  "functions": {
+    "api/update-prices.js": {
+      "maxDuration": 60
+    }
+  }
+}
