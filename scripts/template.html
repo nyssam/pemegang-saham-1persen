@@ -141,6 +141,58 @@ td.right, th.right { text-align: right; }
 .investor-total { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.2rem; }
 .investor-total strong { color: var(--ink); }
 
+.holder-link {
+  background: none; border: none; padding: 0; margin: 0; font: inherit;
+  color: var(--ink); text-decoration: underline dotted; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.holder-link:hover { color: var(--gain); }
+.pie-trigger {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.78rem; color: var(--ink-soft); text-decoration: none;
+  border: 1px solid var(--line); border-radius: 999px; padding: 0.2rem 0.65rem;
+  margin-top: 0.35rem; background: var(--surface);
+}
+.pie-trigger:hover { color: var(--ink); background: var(--surface-hover); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 17, 23, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.25rem; z-index: 1000;
+}
+.modal-card {
+  position: relative; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 14px; max-width: 460px; width: 100%; max-height: 85vh;
+  overflow-y: auto; padding: 1.5rem;
+}
+.modal-close {
+  position: absolute; top: 0.85rem; right: 0.85rem; width: 28px; height: 28px;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink-soft); font-size: 0.85rem; display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: var(--surface-hover); color: var(--ink); }
+.modal-note { font-size: 0.78rem; color: var(--ink-soft); margin: 0.5rem 0 0; line-height: 1.5; }
+
+.pie-wrap { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 1.1rem 0 0.25rem; }
+.pie-donut-wrap { position: relative; width: 190px; height: 190px; flex-shrink: 0; }
+.pie-donut-wrap svg { display: block; }
+.pie-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 0 0.5rem;
+}
+.pie-center-value { font-size: 0.85rem; font-weight: 700; line-height: 1.2; }
+.pie-center-label { font-size: 0.66rem; color: var(--ink-soft); margin-top: 0.15rem; }
+
+.pie-legend { list-style: none; margin: 0; padding: 0; width: 100%; }
+.pie-legend li {
+  display: flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line); font-size: 0.82rem;
+}
+.pie-legend li:last-child { border-bottom: none; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-label { flex: 1; min-width: 0; }
+.legend-value { color: var(--ink-soft); text-align: right; }
+
 .public-row td {
   padding: 0.55rem 0.75rem;
   border-top: 1px solid var(--line);
@@ -192,6 +244,13 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
   <p class="count" id="count"></p>
   <div id="results"></div>
 
+  <div class="modal-overlay" id="modalOverlay" style="display:none">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Sebaran portofolio">
+      <button type="button" class="modal-close" id="modalClose" aria-label="Tutup">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
   <footer class="pp-footer">
     <span>Data kepemilikan saham dari KSEI. Bukan rekomendasi beli/jual. Sumber data dari <a href="https://www.idx.co.id/StaticData/NewsAndAnnouncement/ANNOUNCEMENTSTOCK/From_EREP/202606/c3afea116e_700b93231b.pdf" target="_blank" rel="noopener noreferrer">sini</a>.</span>
     <span>Saham Dari Nol</span>
@@ -234,6 +293,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
 
   var issuers = DATA.issuers;
   var investors = DATA.investors;
+  var investorByName = {};
+  investors.forEach(function (inv) { investorByName[inv.name] = inv; });
   document.getElementById('reportDate').textContent = DATA.reportDate;
   document.getElementById('issuerCount').textContent = issuers.length;
   document.getElementById('investorCount').textContent = investors.length;
@@ -250,6 +311,14 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
     if (n === null || n === undefined || isNaN(n)) return '—';
     return 'Rp' + Math.round(n).toLocaleString('id-ID');
   }
+  function formatRpCompact(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    var abs = Math.abs(n);
+    if (abs >= 1e12) return 'Rp' + (n / 1e12).toFixed(2).replace('.', ',') + ' T';
+    if (abs >= 1e9) return 'Rp' + (n / 1e9).toFixed(2).replace('.', ',') + ' M';
+    if (abs >= 1e6) return 'Rp' + (n / 1e6).toFixed(2).replace('.', ',') + ' Jt';
+    return formatRp(n);
+  }
 
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, function (c) {
@@ -263,12 +332,22 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
     return Object.prototype.hasOwnProperty.call(prices, ticker) ? prices[ticker] : null;
   }
 
+  function investorHasPortfolio(name) {
+    var inv = investorByName[name];
+    return !!inv && inv.holdings.length > 1;
+  }
+
+  function holderNameHtml(name) {
+    if (!investorHasPortfolio(name)) return escapeHtml(name);
+    return '<button type="button" class="holder-link" data-investor="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
+  }
+
   function issuerCard(item) {
     var rows = item.holders.map(function (h) {
       var badge = h.cls ? '<span class="tag">' + escapeHtml(h.cls) + '</span>' : '';
       var price = priceOf(item.ticker);
       var value = price != null ? h.shares * price : null;
-      return '<tr><td><span class="holder-cell">' + escapeHtml(h.name) + badge + '</span></td>' +
+      return '<tr><td><span class="holder-cell">' + holderNameHtml(h.name) + badge + '</span></td>' +
         '<td class="right num">' + shares(h.shares) + '</td>' +
         '<td class="right num">' + pct(h.pct) + '</td>' +
         '<td class="right num">' + formatRp(price) + '</td>' +
@@ -312,12 +391,16 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
         (item.holdings.length > 1 && item.holdings.some(function (h) { return priceOf(h.ticker) == null; }) ? '*' : '') +
         '</strong></div>'
       : '';
+    var pieBtn = item.holdings.length > 1
+      ? '<button type="button" class="holder-link pie-trigger" data-investor="' + escapeHtml(item.name) + '">📊 Sebaran portofolio</button>'
+      : '';
     return (
       '<section class="ledger">' +
         '<div class="section-head">' +
           '<div>' +
             '<h2><span class="ticker-cell">' + escapeHtml(item.name) + badge + '</span></h2>' +
             totalLine +
+            pieBtn +
           '</div>' +
         '</div>' +
         '<div class="table-card">' +
@@ -388,6 +471,104 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
     debounceTimer = setTimeout(runSearch, 80);
   });
 
+  var modalOverlay = document.getElementById('modalOverlay');
+  var modalBody = document.getElementById('modalBody');
+  var currentModalInvestor = null;
+
+  function closeModal() {
+    modalOverlay.style.display = 'none';
+    currentModalInvestor = null;
+  }
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', function (e) { if (e.target === modalOverlay) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  function pieColor(i) { return 'hsl(' + Math.round((i * 137.508) % 360) + ', 58%, 48%)'; }
+
+  function arcPoint(cx, cy, r, angleDeg) {
+    var rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  function buildPieSvg(segments, total) {
+    var cx = 95, cy = 95, r = 90;
+    var angle = 0;
+    var paths = segments.map(function (seg) {
+      var sweep = total > 0 ? (seg.value / total) * 360 : 0;
+      var d;
+      if (sweep >= 359.99) {
+        var p1 = arcPoint(cx, cy, r, 0), p2 = arcPoint(cx, cy, r, 179.99);
+        d = 'M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) +
+          ' A ' + r + ' ' + r + ' 0 1 1 ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2) +
+          ' A ' + r + ' ' + r + ' 0 1 1 ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' Z';
+      } else {
+        var start = arcPoint(cx, cy, r, angle);
+        var end = arcPoint(cx, cy, r, angle + sweep);
+        var largeArc = sweep > 180 ? 1 : 0;
+        d = 'M ' + cx + ' ' + cy + ' L ' + start.x.toFixed(2) + ' ' + start.y.toFixed(2) +
+          ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + end.x.toFixed(2) + ' ' + end.y.toFixed(2) + ' Z';
+      }
+      angle += sweep;
+      return '<path d="' + d + '" fill="' + seg.color + '"></path>';
+    }).join('');
+    return '<svg viewBox="0 0 190 190" width="190" height="190">' + paths +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="52" fill="var(--bg)"></circle></svg>';
+  }
+
+  function openPortfolioModal(name) {
+    var inv = investorByName[name];
+    if (!inv) return;
+    currentModalInvestor = name;
+    renderModal(inv);
+    modalOverlay.style.display = 'flex';
+  }
+
+  function renderModal(inv) {
+    var priced = [];
+    var unpriced = [];
+    inv.holdings.forEach(function (h) {
+      var price = priceOf(h.ticker);
+      if (price != null) priced.push({ ticker: h.ticker, issuer: h.issuer, value: h.shares * price });
+      else unpriced.push(h.ticker);
+    });
+    priced.sort(function (a, b) { return b.value - a.value; });
+    var total = priced.reduce(function (s, x) { return s + x.value; }, 0);
+    var segments = priced.map(function (s, i) {
+      s.color = pieColor(i);
+      return s;
+    });
+
+    var badge = inv.cls ? '<span class="tag">' + escapeHtml(inv.cls) + '</span>' : '';
+    var html = '<h3 style="margin:0 0 .4rem;font-size:1.05rem;">' + escapeHtml(inv.name) + ' ' + badge + '</h3>' +
+      '<p class="modal-note">Sebaran nilai portofolio di ' + inv.holdings.length + ' emiten yang tercatat di data kepemilikan ≥​1% ini (bukan seluruh portofolio nyatanya, dan di luar % kepemilikan di masing-masing emiten).</p>';
+
+    if (segments.length === 0) {
+      html += '<div class="empty" style="padding:1.5rem 0">Data harga belum tersedia untuk menghitung sebaran nilai portofolio.</div>';
+    } else {
+      html += '<div class="pie-wrap"><div class="pie-donut-wrap">' + buildPieSvg(segments, total) +
+        '<div class="pie-center"><div class="pie-center-value num">' + formatRpCompact(total) + '</div><div class="pie-center-label">Total valuasi tercatat</div></div></div>' +
+        '<ul class="pie-legend">' + segments.map(function (s) {
+          var portion = total > 0 ? (s.value / total * 100) : 0;
+          return '<li><span class="legend-dot" style="background:' + s.color + '"></span>' +
+            '<span class="legend-label"><span class="kode">' + escapeHtml(s.ticker) + '</span> ' + escapeHtml(s.issuer) + '</span>' +
+            '<span class="legend-value num">' + pct(portion) + '</span></li>';
+        }).join('') + '</ul></div>';
+    }
+
+    if (unpriced.length) {
+      html += '<p class="modal-note">Belum ada data harga untuk ' + unpriced.map(escapeHtml).join(', ') + ', jadi belum masuk hitungan di atas.</p>';
+    }
+
+    modalBody.innerHTML = html;
+  }
+
+  resultsEl.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.holder-link') : null;
+    if (!btn) return;
+    var name = btn.getAttribute('data-investor');
+    if (name) openPortfolioModal(name);
+  });
+
   function loadPrices() {
     if (!SUPABASE_URL || SUPABASE_URL.indexOf('__') === 0) return; // not configured yet
     fetch(SUPABASE_URL + '/rest/v1/stock_prices?select=ticker,price,updated_at', {
@@ -406,6 +587,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
         document.getElementById('priceUpdatedAt').textContent = new Date(latest).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
       }
       runSearch(); // re-render current results now that prices are in
+      if (currentModalInvestor && investorByName[currentModalInvestor]) renderModal(investorByName[currentModalInvestor]);
     }).catch(function () { /* no prices available -- tables just show "—" */ });
   }
   loadPrices();
