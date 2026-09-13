@@ -214,8 +214,24 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
   .brand-text h1 { font-size: 1.1rem; }
   footer.pp-footer { flex-direction: column; gap: 0.3rem; }
 }
+
+.report-link {
+  font-size: 0.75rem; font-weight: 600; color: var(--ink); text-decoration: none; white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 999px; padding: 0.2rem 0.65rem; background: var(--surface);
+}
+.report-link:hover { background: var(--surface-hover); }
+.sdn-cta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 2.5rem; }
+.sdn-cta > div {
+  border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem 1rem; background: var(--surface);
+  display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem;
+}
+.sdn-cta span { color: var(--ink-soft); line-height: 1.5; }
+.sdn-cta a { color: var(--ink); font-weight: 700; text-decoration: none; margin-top: 0.35rem; }
+.sdn-cta a:hover { text-decoration: underline; }
+@media (max-width: 640px) { .sdn-cta { grid-template-columns: 1fr; } }
 </style>
-</head>
+  <script src="https://laporan.sahamdarinol.com/sdn-nav.js" defer></script>
+  </head>
 <body>
 <div class="page">
   <header class="masthead">
@@ -250,6 +266,19 @@ footer.pp-footer a { color: var(--ink); font-weight: 600; text-decoration: under
       <div id="modalBody"></div>
     </div>
   </div>
+
+  <aside class="sdn-cta">
+    <div>
+      <strong>Baru mulai belajar saham?</strong>
+      <span>Ikutin urutan materi dasar Saham Dari Nol dulu, biar data kayak gini gampang dibaca.</span>
+      <a href="https://sahamdarinol.com/pemula-baiknya-mulai-dari-mana-1">Mulai Belajar →</a>
+    </div>
+    <div>
+      <strong>Mau bedah lengkap emitennya?</strong>
+      <span>Laporan emiten + Portofolio Palsu buat member Teman Bertumbuh, mulai Rp20.000/bulan.</span>
+      <a href="https://laporan.sahamdarinol.com">Lihat Laporan Emiten →</a>
+    </div>
+  </aside>
 
   <footer class="pp-footer">
     <span>Data kepemilikan saham dari KSEI. Bukan rekomendasi beli/jual. Sumber data dari <a href="https://www.idx.co.id/StaticData/NewsAndAnnouncement/ANNOUNCEMENTSTOCK/From_EREP/202606/c3afea116e_700b93231b.pdf" target="_blank" rel="noopener noreferrer">sini</a>.</span>
@@ -332,6 +361,20 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
     return Object.prototype.hasOwnProperty.call(prices, ticker) ? prices[ticker] : null;
   }
 
+  // Emiten yang punya bedah lengkap di laporan.sahamdarinol.com (khusus member).
+  var reportsByKode = {};
+  function reportLinkHtml(ticker) {
+    var r = reportsByKode[ticker];
+    if (!r) return '';
+    return '<a class="report-link" href="' + escapeHtml(r.url) + '" title="' + escapeHtml(r.judul) + ' (khusus member)">📄 Bedah lengkap 🔒</a>';
+  }
+  fetch('https://laporan.sahamdarinol.com/api/reports').then(function (r) {
+    return r.ok ? r.json() : [];
+  }).then(function (list) {
+    list.forEach(function (r) { reportsByKode[r.kode] = r; });
+    if (list.length) runSearch();
+  }).catch(function () {});
+
   function investorHasPortfolio(name) {
     var inv = investorByName[name];
     return !!inv && inv.holdings.length > 1;
@@ -364,6 +407,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
             '<span class="kode">' + escapeHtml(item.ticker) + '</span>' +
             '<span class="issuer-name">' + escapeHtml(item.issuer) + '</span>' +
           '</span></h2>' +
+        reportLinkHtml(item.ticker) +
         '</div>' +
         '<div class="table-card">' +
           '<table><thead><tr><th>Pemegang Saham</th><th class="right">Lembar Saham</th><th class="right">%</th><th class="right">Harga/Lembar</th><th class="right">Valuasi</th></tr></thead><tbody>' + rows + publicRow + '</tbody></table>' +
