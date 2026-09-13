@@ -366,7 +366,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_C8Q_OedBbcW6OuMohfdTRw_YDx3pdJz';
   function reportLinkHtml(ticker) {
     var r = reportsByKode[ticker];
     if (!r) return '';
-    return '<a class="report-link" href="' + escapeHtml(r.url) + '" title="' + escapeHtml(r.judul) + ' (khusus member)">📄 Bedah lengkap 🔒</a>';
+    return '<a class="report-link" href="' + escapeHtml(r.url) + '" title="' + escapeHtml(r.judul) + ' (khusus member)">📄 Bedah lengkap</a>';
   }
   fetch('https://laporan.sahamdarinol.com/api/reports').then(function (r) {
     return r.ok ? r.json() : [];
