@@ -1,5 +1,7 @@
 // Vercel Serverless Function -- called every 15 min during trading hours by
-// the GitHub Action in .github/workflows/update-prices.yml.
+// pg_cron in Supabase (migration lives in the pp-sahamdarinol repo:
+// supabase/migrations/011_pg_cron_update_prices.sql). It used to be a GitHub
+// Actions schedule, but GitHub kept dropping runs (~2 per day).
 //
 // Fetches last price for every ticker in tickers.json from Yahoo Finance's
 // per-ticker chart endpoint (same one pp-sahamdarinol uses -- the batch
@@ -16,9 +18,27 @@ const tickers = require('./tickers.json');
 const CONCURRENCY = 20;
 const FETCH_TIMEOUT_MS = 6000;
 
+// Two accepted callers: Bearer CRON_SECRET (Vercel env), or Bearer <secret
+// generated inside the database> sent by pg_cron and checked through the
+// verify_cron_secret() RPC, so that secret never has to be copied anywhere.
+async function isCronRequest(req) {
+  const auth = req.headers.authorization || '';
+  const envSecret = process.env.CRON_SECRET;
+  if (envSecret && auth === `Bearer ${envSecret}`) return true;
+
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!token) return false;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/verify_cron_secret`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  return resp.ok && (await resp.json()) === true;
+}
+
 module.exports = async function handler(req, res) {
-  const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!(await isCronRequest(req))) {
     return res.status(401).json({ error: 'unauthorized' });
   }
 

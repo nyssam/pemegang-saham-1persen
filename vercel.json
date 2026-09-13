@@ -1,4 +1,7 @@
 {
+  "regions": [
+    "sin1"
+  ],
   "functions": {
     "api/update-prices.js": {
       "maxDuration": 60
